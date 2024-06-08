@@ -68,6 +68,8 @@ TEMPLATES = [
     },
 ]
 
+ALLOWED_HOSTS = ['*']
+
 WSGI_APPLICATION = "flightScraperAPI.wsgi.application"
 
 
