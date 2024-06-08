@@ -3,5 +3,6 @@ from . import views
 
 urlpatterns = [
     path('flight-average/', views.calculate_flight_price_average),
-    path('car-average/', views.calculate_car_rental_price_average)
+    path('car-average/', views.calculate_car_rental_price_average),
+    path('hotel-average/', views.calculate_hotel_price_average)
 ]

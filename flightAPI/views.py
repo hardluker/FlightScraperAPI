@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 import re
 import json
+from datetime import datetime
 
 
 # Post request for getting flight prices
@@ -92,7 +93,7 @@ def find_flight_prices(flight_info):
     finally:
         driver.quit()
 
-
+# Post request for getting the average rental car price
 @api_view(['POST'])
 def calculate_car_rental_price_average(request):
     try:
@@ -170,6 +171,69 @@ def find_car_rental_prices(car_rental_info):
         driver.quit()
 
 
+# Post request for getting hotel prices
+@api_view(['POST'])
+def calculate_hotel_price_average(request):
+    try:
+        hotel_data = json.loads(request.body)
+        average_price = find_hotel_prices(hotel_data)
+        return JsonResponse({'average_price': average_price})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+# Function to scrape hotel prices
+def find_hotel_prices(hotel_info):
+    options = webdriver.ChromeOptions()
+    options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    chromedriver_path = '/usr/bin/chromedriver'
+    service = Service(chromedriver_path)
+    driver = webdriver.Chrome(options=options)
+
+    city = hotel_info['City']
+    state = hotel_info['State']
+    start_date = hotel_info['StartDate']
+    end_date = hotel_info['EndDate']
+    nights = calculate_nights(start_date, end_date)
+
+    url = f"https://www.kayak.com/hotels/{city},{state}/{start_date}/{end_date}/"
+
+    driver.get(url)
+
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
+        )
+
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+        price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
+        prices = []
+
+        for element in price_elements:
+            price_text = element.get_text(strip=True)
+            # Match the first occurrence of a price pattern like $123
+            match = re.search(r'\$\d+', price_text)
+            if match:
+                nightly_price = float(re.sub(r'[^\d.]', '', match.group()))
+                total_price = nightly_price * nights
+                prices.append(total_price)
+
+        if not prices:
+            raise Exception("No prices found on the page.")
+
+        filtered_prices = remove_outliers(prices)
+        average_price = np.mean(filtered_prices)
+        return average_price
+
+    except TimeoutException as e:
+        raise Exception("Loading took too much time!") from e
+
+    finally:
+        driver.quit()
+
+
 # The interquartile method for removing extreme outliers in datasets.
 def remove_outliers(data):
     data = np.array(data)
@@ -180,4 +244,11 @@ def remove_outliers(data):
     upper_bound = Q3 + 1.5 * IQR
     filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
     return filtered_data.tolist()
+
+# Calculate the number of nights between two dates
+def calculate_nights(start_date, end_date):
+    start = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(end_date, "%Y-%m-%d")
+    nights = (end - start).days
+    return nights
 
