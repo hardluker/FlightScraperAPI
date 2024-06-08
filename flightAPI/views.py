@@ -62,7 +62,7 @@ def find_flight_prices(flight_info):
     try:
         # Wait for the price elements to load
         WebDriverWait(driver, 10).until(
-            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'price-text')]"))
+            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
         )
 
         # Get page source and parse with BeautifulSoup
@@ -70,18 +70,21 @@ def find_flight_prices(flight_info):
         soup = BeautifulSoup(page_source, 'html.parser')
 
         # Extract all elements with class names containing 'price-text' or similar patterns
-        price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.search(r'price-text', ' '.join(tag.get('class', []))))
+        price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
         prices = []
 
         # Extract numeric value from price text and calculate the average
         for element in price_elements:
             price_text = element.get_text(strip=True)
-            price = float(re.sub(r'[^\d.]', '', price_text))
-            prices.append(price)
+            # Match the first occurrence of a price pattern like $123
+            match = re.search(r'\$\d+', price_text)
+            if match:
+                price = float(re.sub(r'[^\d.]', '', match.group()))
+                prices.append(price)
 
         filtered_prices = remove_outliers(prices)
         average_price = np.mean(filtered_prices)
-        return average_price
+        return filtered_prices
 
     except TimeoutException as e:
         raise Exception("Loading took too much time!") from e
