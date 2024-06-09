@@ -85,7 +85,7 @@ def find_flight_prices(flight_info):
 
         filtered_prices = remove_outliers(prices)
         average_price = np.mean(filtered_prices)
-        return filtered_prices
+        return average_price
 
     except TimeoutException as e:
         raise Exception("Loading took too much time!") from e
