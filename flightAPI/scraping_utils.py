@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 from bs4 import BeautifulSoup
 import numpy as np
 import re
@@ -13,12 +14,13 @@ import json
 from datetime import datetime
 import time
 
-# Function for defining the driver for scraping
+# Function for defining the driver for scraping Chrome
 def get_driver():
     # Adding options to the chrome driver for optimization
     options = webdriver.ChromeOptions()
     #options.add_argument("--headless")
     options.add_argument('--disable-gpu')
+    options.add_argument('--private')
     options.add_argument("--log-level=1")
     options.add_argument('--disable-software-rasterizer')
     options.add_argument("--incognito")
@@ -27,7 +29,7 @@ def get_driver():
     options.add_argument("disable-infobars")
     options.add_argument("--disable-extensions")
 
-    # Disable images
+    #Disable several unnecessary preferences
     prefs = {'profile.default_content_setting_values': {'cookies': 2, 'images': 2, 'javascript': 2, 
                             'plugins': 2, 'popups': 2, 'geolocation': 2, 
                             'notifications': 2, 'auto_select_certificate': 2, 'fullscreen': 2, 
@@ -46,6 +48,53 @@ def get_driver():
 
     # Declaring the driver and returning it
     driver = webdriver.Chrome(options=options)
+    return driver
+
+# Function for defining Firefox driver
+def get_driver2():
+   ## get the Firefox profile object
+    profile = webdriver.FirefoxOptions()
+    profile.set_preference('permissions.default.stylesheet', 2)
+    ## Disable images
+    profile.set_preference('permissions.default.image', 2)
+    ## Disable Flash
+    profile.set_preference('dom.ipc.plugins.enabled.libflashplayer.so',
+                                  'false')
+    profile.set_preference("network.http.pipelining", True)
+    profile.set_preference("network.http.proxy.pipelining", True)
+    profile.set_preference("network.http.pipelining.maxrequests", 8)
+    profile.set_preference("content.notify.interval", 500000)
+    profile.set_preference("content.notify.ontimer", True)
+    profile.set_preference("content.switch.threshold", 250000)
+    profile.set_preference("browser.cache.memory.capacity", 65536) # Increase the cache capacity.
+    profile.set_preference("browser.startup.homepage", "about:blank")
+    profile.set_preference("reader.parse-on-load.enabled", False) # Disable reader, we won't need that.
+    profile.set_preference("browser.pocket.enabled", False) # Duck pocket too!
+    profile.set_preference("loop.enabled", False)
+    profile.set_preference("browser.chrome.toolbar_style", 1) # Text on Toolbar instead of icons
+    profile.set_preference("browser.display.show_image_placeholders", False) # Don't show thumbnails on not loaded images.
+    profile.set_preference("browser.display.use_document_colors", False) # Don't show document colors.
+    profile.set_preference("browser.display.use_document_fonts", 0) # Don't load document fonts.
+    profile.set_preference("browser.display.use_system_colors", True) # Use system colors.
+    profile.set_preference("browser.formfill.enable", False) # Autofill on forms disabled.
+    profile.set_preference("browser.helperApps.deleteTempFileOnExit", True) # Delete temprorary files.
+    profile.set_preference("browser.shell.checkDefaultBrowser", False)
+    profile.set_preference("browser.startup.homepage", "about:blank")
+    profile.set_preference("browser.startup.page", 0) # blank
+    profile.set_preference("browser.tabs.forceHide", True) # Disable tabs, We won't need that.
+    profile.set_preference("browser.urlbar.autoFill", False) # Disable autofill on URL bar.
+    profile.set_preference("browser.urlbar.autocomplete.enabled", False) # Disable autocomplete on URL bar.
+    profile.set_preference("browser.urlbar.showPopup", False) # Disable list of URLs when typing on URL bar.
+    profile.set_preference("browser.urlbar.showSearch", False) # Disable search bar.
+    profile.set_preference("extensions.checkCompatibility", False) # Addon update disabled
+    profile.set_preference("extensions.checkUpdateSecurity", False)
+    profile.set_preference("extensions.update.autoUpdateEnabled", False)
+    profile.set_preference("extensions.update.enabled", False)
+    profile.set_preference("general.startup.browser", False)
+    profile.set_preference("plugin.default_plugin_disabled", False)
+    profile.set_preference("permissions.default.image", 2) # Image load disabled again
+    driver = webdriver.Firefox(profile)
+    
     return driver
 
 # Function for trying the scrapes multiple times in case there is an issue in the web page loading
