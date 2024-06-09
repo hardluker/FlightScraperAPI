@@ -1,8 +1,8 @@
-# Backend kayak Webscraper API
+# Backend Webscraper API
 
 ## How does it work?
 
-This webscraper utilizes Selenium, BeautifulSoup, Kayak.com, and Probability and statistics principles.
+This webscraper utilizes Selenium, BeautifulSoup, and Probability and statistics principles.
 It is capable of gathering the average cost of flights, car rentals, and hotel prices.
 
 The webscraping is robust and dynamic in that is simply searches for elements that contain "$" followed by numbers.
