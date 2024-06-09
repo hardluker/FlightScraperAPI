@@ -1,10 +1,8 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from django.shortcuts import render
 
 # flightapi/views.py
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -27,7 +25,7 @@ def calculate_flight_price_average(request):
         flight_data = json.loads(request.body)
             
         # Call the function to scrape flight prices
-        average_price = find_flight_prices(flight_data)
+        average_price = attempt_scrape(find_flight_prices, flight_data)
             
         # Return the result as JSON
         return JsonResponse({'average_price': average_price})
@@ -35,21 +33,57 @@ def calculate_flight_price_average(request):
         # Return error message if something went wrong
         return JsonResponse({'error': str(e)}, status=400)
 
-# Function that utilizes the web scraper libraries to gather the data
+
+# Post request for getting the average rental car price
+@api_view(['POST'])
+def calculate_car_rental_price_average(request):
+    try:
+        # Parse the JSON data from the request body
+        car_rental_data = json.loads(request.body)
+            
+        # Call the function to scrape car rental prices
+        average_price = attempt_scrape(find_car_rental_prices, car_rental_data,)
+            
+        # Return the result as JSON
+        return JsonResponse({'average_price': average_price})
+    except Exception as e:
+        # Return error message if something went wrong
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+# Post request for getting hotel prices
+@api_view(['POST'])
+def calculate_hotel_price_average(request):
+    try:
+        hotel_data = json.loads(request.body)
+        average_price = attempt_scrape(find_hotel_prices, hotel_data)
+        return JsonResponse({'average_price': average_price})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+
+
+####### Everything Here needs to be Abstracted into a new file #########
+
+# Function for trying the scrapes multiple times in case there is an issue in the web page loading
+def attempt_scrape(scrapeFunction, request_data, retries=3, delay=1):
+    for attempt in range(retries):
+        try:
+            return scrapeFunction(request_data)
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Failed, trying again in {delay} seconds")
+                time.sleep(delay)
+            else:
+                raise Exception(str(e))
+            
+
+
+# Function to scrape flight data
 def find_flight_prices(flight_info):
-    options = webdriver.ChromeOptions()
-    #options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    
-    # Specify the path to chromedriver executable
-    chromedriver_path = '/usr/bin/chromedriver'
-    
-    # Set the path to the chromedriver executable
-    service = Service(chromedriver_path)
-    
-    driver = webdriver.Chrome(options=options)
+    driver = get_driver()
+
 
     dep = flight_info['Departure']
     arr = flight_info['Arrival']
@@ -92,37 +126,12 @@ def find_flight_prices(flight_info):
 
     finally:
         driver.quit()
-
-# Post request for getting the average rental car price
-@api_view(['POST'])
-def calculate_car_rental_price_average(request):
-    try:
-        # Parse the JSON data from the request body
-        car_rental_data = json.loads(request.body)
             
-        # Call the function to scrape car rental prices
-        average_price = find_car_rental_prices(car_rental_data)
-            
-        # Return the result as JSON
-        return JsonResponse({'average_price': average_price})
-    except Exception as e:
-        # Return error message if something went wrong
-        return JsonResponse({'error': str(e)}, status=400)
 
+
+# Function for scraping car rental prices
 def find_car_rental_prices(car_rental_info):
-    options = webdriver.ChromeOptions()
-    #options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    
-    # Specify the path to chromedriver executable
-    chromedriver_path = '/usr/bin/chromedriver'
-    
-    # Set the path to the chromedriver executable
-    service = Service(chromedriver_path)
-    
-    driver = webdriver.Chrome(options=options)
+    driver = get_driver()
 
     start_airport = car_rental_info['StartAirport']
     end_airport = car_rental_info['EndAirport']
@@ -171,35 +180,10 @@ def find_car_rental_prices(car_rental_info):
         driver.quit()
 
 
-# Post request for getting hotel prices
-@api_view(['POST'])
-def calculate_hotel_price_average(request):
-    try:
-        hotel_data = json.loads(request.body)
-        average_price = retry_find_hotel_prices(hotel_data)
-        return JsonResponse({'average_price': average_price})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
-    
-def retry_find_hotel_prices(hotel_data, retries=3, delay=5):
-    for attempt in range(retries):
-        try:
-            return find_hotel_prices(hotel_data)
-        except TimeoutException:
-            if attempt < retries - 1:
-                time.sleep(delay)
-            else:
-                raise Exception("Loading took too much time after multiple attempts!")
-
 # Function to scrape hotel prices
 def find_hotel_prices(hotel_info):
-    options = webdriver.ChromeOptions()
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    chromedriver_path = '/usr/bin/chromedriver'
-    service = Service(chromedriver_path)
-    driver = webdriver.Chrome(options=options)
+    
+    driver = get_driver()
 
     city = hotel_info['City']
     state = hotel_info['State']
@@ -239,6 +223,17 @@ def find_hotel_prices(hotel_info):
             raise Exception("Loading took too much time after multiple attempts!")
     finally:
         driver.quit()
+
+def get_driver():
+    options = webdriver.ChromeOptions()
+    options.add_argument('--disable-gpu')
+    options.add_argument("--log-level=1")
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    chromedriver_path = '/usr/bin/chromedriver'
+    service = Service(chromedriver_path)
+    driver = webdriver.Chrome(options=options)
+    return driver
 
 
 # The interquartile method for removing extreme outliers in datasets.
