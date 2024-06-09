@@ -46,7 +46,7 @@ def get_driver():
     service = Service(chromedriver_path)
 
     # Declaring the driver and returning it
-    driver = webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(service=service, options=options)
     return driver
 
 # Function for defining Firefox driver
@@ -97,13 +97,13 @@ def get_driver2():
     return driver
 
 # Function for trying the scrapes multiple times in case there is an issue in the web page loading
-def attempt_scrape(scrapeFunction, request_data, retries=3, delay=0.1):
+def attempt_scrape(scrapeFunction, request_data, retries=5, delay=0.1):
     for attempt in range(retries):
         try:
             return scrapeFunction(request_data)
         except Exception as e:
             if attempt < retries - 1:
-                print(f"Failed, trying again in {delay} seconds")
+                print(f"Failed, attempt {attempt} of {range(retries)} trying again in {delay} seconds")
                 time.sleep(delay)
             else:
                 raise Exception(str(e))
