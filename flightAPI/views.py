@@ -176,10 +176,20 @@ def find_car_rental_prices(car_rental_info):
 def calculate_hotel_price_average(request):
     try:
         hotel_data = json.loads(request.body)
-        average_price = find_hotel_prices(hotel_data)
+        average_price = retry_find_hotel_prices(hotel_data)
         return JsonResponse({'average_price': average_price})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+    
+def retry_find_hotel_prices(hotel_data, retries=3, delay=5):
+    for attempt in range(retries):
+        try:
+            return find_hotel_prices(hotel_data)
+        except TimeoutException:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise Exception("Loading took too much time after multiple attempts!")
 
 # Function to scrape hotel prices
 def find_hotel_prices(hotel_info):
@@ -199,41 +209,36 @@ def find_hotel_prices(hotel_info):
 
     url = f"https://www.kayak.com/hotels/{city},{state}/{start_date}/{end_date}/"
 
-    retry_count = 3
-    for attempt in range(retry_count):
-        driver.get(url)
-        try:
-            WebDriverWait(driver, 20).until(
-                EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
-            )
+    driver.get(url)
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
+        )
             
-            page_source = driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
-            price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
-            prices = []
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+        price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
+        prices = []
 
-            for element in price_elements:
-                price_text = element.get_text(strip=True)
-                match = re.search(r'\$\d+', price_text)
-                if match:
-                    nightly_price = float(re.sub(r'[^\d.]', '', match.group()))
-                    total_price = nightly_price * nights
-                    prices.append(total_price)
+        for element in price_elements:
+            price_text = element.get_text(strip=True)
+            match = re.search(r'\$\d+', price_text)
+            if match:
+                nightly_price = float(re.sub(r'[^\d.]', '', match.group()))
+                total_price = nightly_price * nights
+                prices.append(total_price)
 
-            if not prices:
-                raise Exception("No prices found on the page.")
+        if not prices:
+            raise Exception("No prices found on the page.")
 
-            filtered_prices = remove_outliers(prices)
-            average_price = np.mean(filtered_prices)
-            return average_price
+        filtered_prices = remove_outliers(prices)
+        average_price = np.mean(filtered_prices)
+        return average_price
 
-        except TimeoutException:
-            if attempt < retry_count - 1:
-                continue
-            else:
-                raise Exception("Loading took too much time after multiple attempts!")
-        finally:
-            driver.quit()
+    except TimeoutException:
+            raise Exception("Loading took too much time after multiple attempts!")
+    finally:
+        driver.quit()
 
 
 # The interquartile method for removing extreme outliers in datasets.
