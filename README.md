@@ -6,7 +6,7 @@ This webscraper utilizes Selenium, BeautifulSoup, and Probability and statistics
 It is capable of gathering the average cost of flights, car rentals, and hotel prices.
 
 The webscraping is robust and dynamic in that is simply searches for elements that contain "$" followed by numbers.
-Next, it will filter out useless data. Finally, it will use the interquartile range method to elimnate obscure outliers.
+Next, it will filter out useless data. Finally, it will use the interquartile range method to eliminate obscure outliers.
 Finally, it calculates the average of all the prices it scrapes.
 
 The purpose of this tool is the calculate the average cost of travel. This can be used in a business application where travel is a significant part of the business.
