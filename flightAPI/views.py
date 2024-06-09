@@ -17,7 +17,7 @@ import numpy as np
 import re
 import json
 from datetime import datetime
-
+import time
 
 # Post request for getting flight prices
 @api_view(['POST'])
@@ -199,39 +199,41 @@ def find_hotel_prices(hotel_info):
 
     url = f"https://www.kayak.com/hotels/{city},{state}/{start_date}/{end_date}/"
 
-    driver.get(url)
+    retry_count = 3
+    for attempt in range(retry_count):
+        driver.get(url)
+        try:
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
+            )
+            
+            page_source = driver.page_source
+            soup = BeautifulSoup(page_source, 'html.parser')
+            price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
+            prices = []
 
-    try:
-        WebDriverWait(driver, 20).until(
-            EC.presence_of_all_elements_located((By.XPATH, "//div[contains(text(), '$')]"))
-        )
+            for element in price_elements:
+                price_text = element.get_text(strip=True)
+                match = re.search(r'\$\d+', price_text)
+                if match:
+                    nightly_price = float(re.sub(r'[^\d.]', '', match.group()))
+                    total_price = nightly_price * nights
+                    prices.append(total_price)
 
-        page_source = driver.page_source
-        soup = BeautifulSoup(page_source, 'html.parser')
-        price_elements = soup.find_all(lambda tag: tag.name == 'div' and re.match(r'\$\d+', tag.get_text()))
-        prices = []
+            if not prices:
+                raise Exception("No prices found on the page.")
 
-        for element in price_elements:
-            price_text = element.get_text(strip=True)
-            # Match the first occurrence of a price pattern like $123
-            match = re.search(r'\$\d+', price_text)
-            if match:
-                nightly_price = float(re.sub(r'[^\d.]', '', match.group()))
-                total_price = nightly_price * nights
-                prices.append(total_price)
+            filtered_prices = remove_outliers(prices)
+            average_price = np.mean(filtered_prices)
+            return average_price
 
-        if not prices:
-            raise Exception("No prices found on the page.")
-
-        filtered_prices = remove_outliers(prices)
-        average_price = np.mean(filtered_prices)
-        return average_price
-
-    except TimeoutException as e:
-        raise Exception("Loading took too much time!") from e
-
-    finally:
-        driver.quit()
+        except TimeoutException:
+            if attempt < retry_count - 1:
+                continue
+            else:
+                raise Exception("Loading took too much time after multiple attempts!")
+        finally:
+            driver.quit()
 
 
 # The interquartile method for removing extreme outliers in datasets.
