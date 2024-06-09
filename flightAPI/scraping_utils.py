@@ -22,7 +22,6 @@ def get_driver():
     options.add_argument('--disable-gpu')
     options.add_argument('--private')
     options.add_argument("--log-level=1")
-    options.add_argument('--disable-software-rasterizer')
     options.add_argument("--incognito")
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
